@@ -1,11 +1,13 @@
 # HTML5 Speedtest
 
-> by Federico Dossena  
-> Version 4.5, November 1, 2017
-> [https://github.com/adolfintel/speedtest/](https://github.com/adolfintel/speedtest/)
+> by Benjamin Akhras
+> Version 4.6, Januarry 20, 2018
+> [https://github.com/b3n4kh/speedtest/](https://github.com/b3n4kh/speedtest/)
 
 
 ## Introduction
+This is a fork of [https://github.com/adolfintel/speedtest/](https://github.com/adolfintel/speedtest/).
+
 In this document, we will introduce an XHR based HTML5 Speedtest and see how to use it.
 This test measures download speed, upload speed, ping and jitter.
 
@@ -19,27 +21,15 @@ First of all, the requirements to run this test:
     * Apple Safari 7.1+
     * Opera 18+
 * Client side, the test can use up to 500 megabytes of RAM
-* Server side, you'll need a fast connection (at least 100 Mbps recommended), and the web server must accept large POST requests (up to 20 megabytes).
-  Apache2 and PHP are recommended, but not mandatory.
-
-If this looks good, let's proceed and see how to use the test.
-
-## Quick installation videos
-* [Debian 9.0 with Apache](https://fdossena.com/?p=speedtest/quickstart_deb.frag)
-* [Windows Server 2016 with IIS](https://fdossena.com/?p=speedtest/quickstart_win.frag)
+* Nginx Webserver
 
 ## Installation
-To install the test on your server, upload the following files:
+To install the test on your server, upload the following files to your webroot:
 
 * `speedtest_worker.min.js`
-* `garbage.php`
-* `getIP.php`
-* `empty.php`
-* one of the examples
+* `index.html` or one of the examples
 
-Later we'll see how to use the test without PHP, and how to configure the telemetry if you want to use it.
-
-__Important:__ keep all the files together; all paths are relative to the js file
+Configure your Nginx to (something similar as) nginx/speedtest.conf.
 
 ## Basic usage
 You can start using this speedtest on your site without any special knowledge.  
@@ -50,8 +40,6 @@ Start by copying one of the included examples. Here's a description for each of 
 * `example-customSettings.html`: A modified version of `example-pretty.html` showing how the test can be started with custom parameters
 * `example-customSettings2.html`: A modified version of `example-pretty.html` showing how to make a custom test with only download and upload
 * `example-gauges.html`: The most sophisticated example, with the same functions as `example-pretty.html` but also gauges and progress indicators for each test. This is the nicest example included, and also a good starting point, but drawing the gauges may slow down the test on slow devices like a Raspberry Pi
-* `example-chart.html`: The old example5.html, showing how to use the test with the Chart.js library
-* `example-telemetry.html`: A modified version of `example-pretty.html` with basic telemetry turned on. See the section on Telemetry for details
 
 ### Customizing your example
 The included examples are good starting places if you want to have a simple speedtest on your site.  
@@ -277,88 +265,12 @@ A lot of web developers think that referring to the latest version of a library 
 Things may change and I don't want to break your project, so do yourself a favor, and keep all files on your server.  
 You have been warned.
 
-## Using the test without PHP
-If your server does not support PHP, or you're using something newer like Node.js, you can still use this test by replacing `garbage.php`, `empty.php` and `getIP.php` with equivalents.
-
-### Replacements
-
-#### Replacement for `garbage.php`
-A replacement for `garbage.php` must generate incompressible garbage data.
-
+####  The `garbage` File
 A large file (10-100 Mbytes) is a possible replacement. You can get [one here](http://downloads.fdossena.com/geth.php?r=speedtest-bigfile).
 
 If you're using Node.js or some other server, your replacement should accept the `ckSize` parameter (via GET) which tells it how many megabytes of garbage to generate.
 It is important here to turn off compression, and generate incompressible data.
 A symlink to `/dev/urandom` is also ok.
-
-#### Replacement for `empty.php`
-Your replacement must simply respond with a HTTP code 200 and send nothing else. You may want to send additional headers to disable caching. The test assumes that Connection:keep-alive is sent by the server.
-
-#### Replacement for `getIP.php`
-Your replacement must simply respond with the client's IP as plaintext. Nothing fancy.
-
-#### JS
-You need to start the test with your replacements like this:
-
-```js
-w.postMessage('start {"url_dl": "newGarbageURL", "url_ul": "newEmptyURL", "url_ping": "newEmptyURL", "url_getIp": "newIpURL"}')
-```
-## Telemetry
-Telemetry currently requires PHP and either MySQL, PostgreSQL or SQLite.
-To set up the telemetry, we need to do 4 things:
-* copy `telemetry.php` and `telemetry_settings.php`
-* edit `telemetry_settings.php` to add your database settings
-* create the database
-* enable telemetry
-
-### Creating the database
-This step is only for MySQL and PostgreSQL. Skip this if you want to use SQLite.
-Log into your database using phpMyAdmin or a similar software and import the appropriate sql file into an empty database. For MySQL databases use `telemetry_mysql.sql` and for PostgreSQL databases use `telemetry_postgesql.sql`.
-If you see a table called `speedtest_users`, empty, you did it right.
-
-### Configuring `telemetry.php`
-Open telemetry_settings.php with notepad or a similar text editor.
-Set your preferred database, ``$db_type="mysql";``, ``$db_type="sqlite";`` or ``$db_type="postgresql";``
-If you choose to use Sqlite3, you must set the path to your database file:
-```php
-$Sqlite_db_file = "../telemetry.sql";
-```
-
-If you choose to use MySQL, you must also add your database credentials:
-```php
-$MySql_username="USERNAME"; //your database username
-$MySql_password="PASSWORD"; //your database password
-$MySql_hostname="DB_HOSTNAME"; //database address, usually localhost\
-$MySql_databasename="DB_NAME"; //the name of the database where you loaded telemetry_mysql.sql
-```
-
-If you choose to use PostgreSQL, you must also add your database credentials:
-```php
-$PostgreSql_username="USERNAME"; //your database username
-$PostgreSql_password="PASSWORD"; //your database password
-$PostgreSql_hostname="DB_HOSTNAME"; //database address, usually localhost
-$PostgreSql_databasename="DB_NAME"; //the name of the database where you loaded telemetry_postgresql.sql
-```
-
-### Enabling telemetry
-Edit your test page; where you start the worker, you need to specify the `telemetry_level`.  
-There are 3 levels:
-* `none`: telemetry is disabled (default)
-* `basic`: telemetry collects IP, User Agent, Preferred language, Test results
-* `full`: same as above, but also collects a log (10-150 Kb each, not recommended)
-
-Example:
-```js
-w.postMessage('start {"telemetry_level":"basic"}')
-```
-
-Also, see example-telemetry.html
-
-### Seeing the results
-At the moment there is no front-end to see the telemetry data; you can connect to the database and see the collected results in the `speedtest_users` table.
-
-## Troubleshooting
-These are the most common issues reported by users, and how to fix them. If you still need help, contact me at [dosse91@paranoici.org](mailto:dosse91@paranoici.org).
 
 #### Download test gives very low result
 Are garbage.php and empty.php (or your replacements) reachable?  

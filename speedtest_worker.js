@@ -1,22 +1,16 @@
-/*
-	HTML5 Speedtest v4.5
-	by Federico Dossena
-	https://github.com/adolfintel/speedtest/
-	GNU LGPLv3 License
-*/
+//	https://github.com/b3n4kh/speedtest/
 
-// data reported to main thread
 var testStatus = -1 // -1=not started, 0=starting, 1=download test, 2=ping+jitter test, 3=upload test, 4=finished, 5=abort/error
 var dlStatus = '' // download speed in megabit/s with 2 decimal digits
 var ulStatus = '' // upload speed in megabit/s with 2 decimal digits
 var pingStatus = '' // ping in milliseconds with 2 decimal digits
 var jitterStatus = '' // jitter in milliseconds with 2 decimal digits
 var clientIp = '' // client's IP address as reported by getIP.php
+var clientUid = '' // client's uid as reported by getUid
 var dlProgress = 0 //progress of download test 0-1
 var ulProgress = 0 //progress of upload test 0-1
 var pingProgress = 0 //progress of ping+jitter test 0-1
 
-var log='' //telemetry log
 function tlog(s){log+=Date.now()+': '+s+'\n'}
 function twarn(s){log+=Date.now()+' WARN: '+s+'\n'; console.warn(s)}
 
@@ -28,10 +22,11 @@ var settings = {
   time_ulGraceTime: 3, //time to wait in seconds before actually measuring ul speed (wait for buffers to fill)
   time_dlGraceTime: 1.5, //time to wait in seconds before actually measuring dl speed (wait for TCP window to increase)
   count_ping: 35, // number of pings to perform in ping test
-  url_dl: 'garbage.php', // path to a large file or garbage.php, used for download test. must be relative to this js file
-  url_ul: 'empty.php', // path to an empty file, used for upload test. must be relative to this js file
-  url_ping: 'empty.php', // path to an empty file, used for ping test. must be relative to this js file
-  url_getIp: 'getIP.php', // path to getIP.php relative to this js file, or a similar thing that outputs the client's ip
+  url_dl: 'garbage', // path to a large file or garbage.php, used for download test. must be relative to this js file
+  url_ul: 'empty', // path to an empty file, used for upload test. must be relative to this js file
+  url_ping: 'empty', // path to an empty file, used for ping test. must be relative to this js file
+  url_getIp: 'ip', // path to getIP.php relative to this js file, or a similar thing that outputs the client's ip
+  url_getUid: 'uid', // path to getUid relative to this js file, or a similar thing that outputs the client's uid
   xhr_dlMultistream: 10, // number of download streams to use (can be different if enable_quirks is active)
   xhr_ulMultistream: 3, // number of upload streams to use (can be different if enable_quirks is active)
   xhr_multistreamDelay: 300, //how much concurrent requests should be delayed
@@ -42,8 +37,6 @@ var settings = {
   ping_allowPerformanceApi: true, // if enabled, the ping test will attempt to calculate the ping more precisely using the Performance API. Currently works perfectly in Chrome, badly in Edge, and not at all in Firefox. If Performance API is not supported or the result is obviously wrong, a fallback is provided.
   overheadCompensationFactor: 1.06, //can be changed to compensatie for transport overhead. (see doc.md for some other values)
   useMebibits: false, //if set to true, speed will be reported in mebibits/s instead of megabits/s
-  telemetry_level: 0, // 0=disabled, 1=basic (results only), 2=full (results+log)
-  url_telemetry: 'telemetry.php' // path to the script that adds telemetry data to the database
 }
 
 var xhr = null // array of currently active xhr requests
@@ -54,6 +47,18 @@ var test_pointer = 0 //pointer to the next test to run inside settings.test_orde
   this function is used on URLs passed in the settings to determine whether we need a ? or an & as a separator
 */
 function url_sep (url) { return url.match(/\?/) ? '&' : '?'; }
+
+function setCookie(cname, cvalue, exhours) {
+  var d = new Date();
+  d.setTime(d.getTime() + (exhours * 60 * 60 * 1000));
+  var expires = "expires="+d.toUTCString();
+  document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
+}
+
+function cookifyResult(){
+  var checkResult = 'dl='+dlStatus+'|ul='+ulStatus+'|ping='+pingStatus+'|jitter='+jitterStatus
+  setCookie("lastcheck", checkResult, 2)
+}
 
 /*
 	listener for commands from main thread to this worker.
@@ -107,8 +112,6 @@ this.addEventListener('message', function (e) {
         //Edge 15 introduced a bug that causes onprogress events to not get fired, we have to use the "small chunks" workaround that reduces accuracy
         settings.forceIE11Workaround = true
       }
-      //telemetry_level has to be parsed and not just copied
-      if(typeof s.telemetry_level !== 'undefined') settings.telemetry_level = s.telemetry_level === 'basic' ? 1 : s.telemetry_level === 'full' ? 2 : 0; // telemetry level
       //transform test_order to uppercase, just in case
       settings.test_order=settings.test_order.toUpperCase();
     } catch (e) { twarn('Possible error in custom test settings. Some settings may not be applied. Exception: '+e) }
@@ -117,10 +120,9 @@ this.addEventListener('message', function (e) {
     test_pointer=0;
 	var iRun=false,dRun=false,uRun=false,pRun=false;
     var runNextTest=function(){
-      if(test_pointer>=settings.test_order.length){testStatus=4; sendTelemetry(); return;}
       switch(settings.test_order.charAt(test_pointer)){
         case 'I':{test_pointer++; if(iRun) {runNextTest(); return;} else iRun=true; getIp(runNextTest);} break;
-        case 'D':{test_pointer++; if(dRun) {runNextTest(); return;} else dRun=true;  testStatus=1; dlTest(runNextTest);} break;
+        case 'D':{test_pointer++; if(dRun) {runNextTest(); return;} else dRun=true; testStatus=1; dlTest(runNextTest);} break;
         case 'U':{test_pointer++; if(uRun) {runNextTest(); return;} else uRun=true; testStatus=3; ulTest(runNextTest);} break;
         case 'P':{test_pointer++; if(pRun) {runNextTest(); return;} else pRun=true; testStatus=2; pingTest(runNextTest);} break;
         case '_':{test_pointer++; setTimeout(runNextTest,1000);} break;
@@ -134,7 +136,6 @@ this.addEventListener('message', function (e) {
     clearRequests() // stop all xhr activity
     runNextTest=null;
     if (interval) clearInterval(interval) // clear timer if present
-    if (settings.telemetry_level > 1) sendTelemetry()
 	testStatus = 5; dlStatus = ''; ulStatus = ''; pingStatus = ''; jitterStatus = '' // set test as aborted
   }
 })
@@ -169,6 +170,23 @@ function getIp (done) {
   xhr.open('GET', settings.url_getIp + url_sep(settings.url_getIp) + 'r=' + Math.random(), true)
   xhr.send()
 }
+
+function getUid () {
+  tlog('getUid')
+  xhr = new XMLHttpRequest()
+  xhr.onload = function () {
+	tlog("uid: "+xhr.responseText)
+    clientUid = xhr.responseText
+    setCookie("uid", clientUid, 2)
+  }
+  xhr.onerror = function () {
+	  tlog('getUid failed')
+  }
+  xhr.open('GET', settings.url_getUid, true)
+  xhr.send()
+}
+
+
 // download test, calls done function when it's over
 var dlCalled = false // used to prevent multiple accidental calls to dlTest
 function dlTest (done) {
@@ -439,26 +457,32 @@ function pingTest (done) {
   }.bind(this)
   doPing() // start first ping
 }
-// telemetry
-function sendTelemetry(){
-  if (settings.telemetry_level < 1) return
-  xhr = new XMLHttpRequest()
-  xhr.onload = function () { console.log('TELEMETRY OL '+xhr.responseText) }
-  xhr.onerror = function () { console.log('TELEMETRY ERROR '+xhr) }
-  xhr.open('POST', settings.url_telemetry+"?r="+Math.random(), true);
-  try{
-    var fd = new FormData()
-    fd.append('dl', dlStatus)
-    fd.append('ul', ulStatus)
-    fd.append('ping', pingStatus)
-    fd.append('jitter', jitterStatus)
-    fd.append('log', settings.telemetry_level>1?log:"")
-    xhr.send(fd)
-  }catch(ex){
-    var postData = 'dl='+encodeURIComponent(dlStatus)+'&ul='+encodeURIComponent(ulStatus)+'&ping='+encodeURIComponent(pingStatus)+'&jitter='+encodeURIComponent(jitterStatus)+'&log='+encodeURIComponent(settings.telemetry_level>1?log:'')
-    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded')
-    xhr.send(postData)
+
+function getCookie(cname) {
+  var name = cname + "=";
+  var ca = document.cookie.split(';');
+  for(var i = 0; i < ca.length; i++) {
+      var c = ca[i];
+      while (c.charAt(0) == ' ') {
+          c = c.substring(1);
+      }
+      if (c.indexOf(name) == 0) {
+          return c.substring(name.length, c.length);
+      }
   }
+  return "";
+}
 
-
+var uidCookieCalled=false
+function checkCookie() {
+  var user = getCookie("uid");
+  if (user != "") {
+    alert("Ahoi " + user);
+  } else {
+    if (uidCookieCalled == false) {
+      getUid()
+      checkCookie()
+    }
+  }
+  uidCookieCalled=true
 }
