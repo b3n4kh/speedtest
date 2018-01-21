@@ -11,6 +11,7 @@ var dlProgress = 0 //progress of download test 0-1
 var ulProgress = 0 //progress of upload test 0-1
 var pingProgress = 0 //progress of ping+jitter test 0-1
 
+var log=''
 function tlog(s){log+=Date.now()+': '+s+'\n'}
 function twarn(s){log+=Date.now()+' WARN: '+s+'\n'; console.warn(s)}
 
@@ -30,7 +31,7 @@ var settings = {
   xhr_dlMultistream: 10, // number of download streams to use (can be different if enable_quirks is active)
   xhr_ulMultistream: 3, // number of upload streams to use (can be different if enable_quirks is active)
   xhr_multistreamDelay: 300, //how much concurrent requests should be delayed
-  xhr_ignoreErrors: 1, // 0=fail on errors, 1=attempt to restart a stream if it fails, 2=ignore all errors
+  xhr_ignoreErrors: 0, // 0=fail on errors, 1=attempt to restart a stream if it fails, 2=ignore all errors
   xhr_dlUseBlob: false, // if set to true, it reduces ram usage but uses the hard drive (useful with large garbagePhp_chunkSize and/or high xhr_dlMultistream)
   garbagePhp_chunkSize: 20, // size of chunks sent by garbage.php (can be different if enable_quirks is active)
   enable_quirks: true, // enable quirks for specific browsers. currently it overrides settings to optimize for specific browsers, unless they are already being overridden with the start command
