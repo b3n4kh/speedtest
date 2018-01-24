@@ -75,7 +75,7 @@ this.addEventListener('message', function (e) {
       for(var key in s){
         if(typeof settings[key] !== 'undefined') settings[key]=s[key]; else twarn("Unknown setting ignored: "+key);
       }
-      postMessage('Settings;' + settings);
+      postMessage('Settings;' + JSON.stringify(settings));
       // quirks for specific browsers. apply only if not overridden. more may be added in future releases
       if (settings.enable_quirks||(typeof s.enable_quirks !== 'undefined' && s.enable_quirks)) {
         var ua = navigator.userAgent

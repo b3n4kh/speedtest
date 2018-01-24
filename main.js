@@ -1,14 +1,16 @@
 
-
-if(settings.url_dl) {
-	var x = new XMLHttpRequest();
-	x.onload = function () {
-		if(x.status == '404'){
-			alert("Garbage File: '" + settings.url_dl + "' does not exist");
-		}
-	};
-	x.open("GET", settings.url_dl);
-	x.send();
+function checkFileExistence(file, fn) {
+  if(file) {
+    var x = new XMLHttpRequest();
+    x.onload = function () {
+      if(x.status == '404'){
+        fn("File: '" + file + "' does not exist");
+      }
+      fn("0");
+    };
+    x.open("GET", file);
+    x.send();
+  }
 }
 
 
