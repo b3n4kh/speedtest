@@ -120,6 +120,8 @@ function abort(){
 		initUI();
 }
 
+checkCookie();
+
 function startStop(){
 	if(w!=null){
 		abort();
@@ -145,6 +147,7 @@ function startStop(){
 			var status=Number(data[0]);
 			if(status>=4){
 				//test completed
+				setCookie('speedtest', 'done', 2);
 				I("startStopBtn").className="";
 				w=null;
 			}

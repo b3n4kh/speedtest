@@ -41,16 +41,9 @@ function getCookie(cname) {
   return "";
 }
 
-var uidCookieCalled=false
 function checkCookie() {
-  var user = getCookie("uid");
-  if (user != "") {
-    alert("Ahoi " + user);
-  } else {
-    if (uidCookieCalled == false) {
-      getUid()
-      checkCookie()
-    }
+  var speedtest_cookie = getCookie("speedtest");
+  if (speedtest_cookie != "") {
+    alert("Ahoi with Cookie");
   }
-  uidCookieCalled=true
 }
