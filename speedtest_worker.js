@@ -49,18 +49,6 @@ var test_pointer = 0 //pointer to the next test to run inside settings.test_orde
 */
 function url_sep (url) { return url.match(/\?/) ? '&' : '?'; }
 
-function setCookie(cname, cvalue, exhours) {
-  var d = new Date();
-  d.setTime(d.getTime() + (exhours * 60 * 60 * 1000));
-  var expires = "expires="+d.toUTCString();
-  document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
-}
-
-function cookifyResult(){
-  var checkResult = 'dl='+dlStatus+'|ul='+ulStatus+'|ping='+pingStatus+'|jitter='+jitterStatus
-  setCookie("lastcheck", checkResult, 2)
-}
-
 /*
 	listener for commands from main thread to this worker.
 	commands:
@@ -87,6 +75,7 @@ this.addEventListener('message', function (e) {
       for(var key in s){
         if(typeof settings[key] !== 'undefined') settings[key]=s[key]; else twarn("Unknown setting ignored: "+key);
       }
+      postMessage('Settings;' + settings);
       // quirks for specific browsers. apply only if not overridden. more may be added in future releases
       if (settings.enable_quirks||(typeof s.enable_quirks !== 'undefined' && s.enable_quirks)) {
         var ua = navigator.userAgent
@@ -459,31 +448,3 @@ function pingTest (done) {
   doPing() // start first ping
 }
 
-function getCookie(cname) {
-  var name = cname + "=";
-  var ca = document.cookie.split(';');
-  for(var i = 0; i < ca.length; i++) {
-      var c = ca[i];
-      while (c.charAt(0) == ' ') {
-          c = c.substring(1);
-      }
-      if (c.indexOf(name) == 0) {
-          return c.substring(name.length, c.length);
-      }
-  }
-  return "";
-}
-
-var uidCookieCalled=false
-function checkCookie() {
-  var user = getCookie("uid");
-  if (user != "") {
-    alert("Ahoi " + user);
-  } else {
-    if (uidCookieCalled == false) {
-      getUid()
-      checkCookie()
-    }
-  }
-  uidCookieCalled=true
-}

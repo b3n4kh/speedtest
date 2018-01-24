@@ -108,20 +108,10 @@
 	}
 
 </style>
-<script type="text/javascript" src="speedtest_worker.js"></script>
+<script type="text/javascript" src="main.js"></script>
 <script type="text/javascript">
 function I(id){return document.getElementById(id);}
 
-if(settings.url_dl) {
-	var x = new XMLHttpRequest();
-	x.onload = function () {
-		if(x.status == '404'){
-			alert("Garbage File: '" + settings.url_dl + "' does not exist");
-		}
-	};
-	x.open("GET", settings.url_dl);
-	x.send();
-}
 
 var w=null; //speedtest worker
 function startStop(){
@@ -138,6 +128,10 @@ function startStop(){
 		I("startStopBtn").className="running";
 		w.onmessage=function(e){
 			var data=e.data.split(';');
+			if(data[0] === 'Settings') {
+				alert(data);
+				break;
+			}
 			var status=Number(data[0]);
 			if(status>=4){
 				//test completed
