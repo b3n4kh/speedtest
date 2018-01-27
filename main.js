@@ -1,3 +1,35 @@
+function I(id){return document.getElementById(id);}
+
+function abort(){
+  w.postMessage('abort');
+  w=null;
+  I("startStopBtn").className="";
+  initUI();
+}
+
+function loadcookie() {
+loadedResult = loadcookieResult();
+if ( loadedResult != 0 ) {
+  console.log(loadedResult);
+  var decodedData = window.atob(loadedResult);
+  console.log(decodedData);
+  var loadedData=decodedData.split('|');
+  if (compareIP(loadedData[3]) == 0) {
+    I("ip").textContent=loadedData[3];
+    I("dlText").textContent=loadedData[0];
+    I("ulText").textContent=loadedData[1];
+    I("pingText").textContent=loadedData[2];
+    I("jitText").textContent=loadedData[4];
+    done();
+  }
+}
+}
+
+function done(){
+  I("startStopBtn").className="done";
+  I("startStopBtn").onclick="";
+  timer();
+}
 
 function checkFileExistence(file, fn) {
   if(file) {
@@ -13,17 +45,9 @@ function checkFileExistence(file, fn) {
   }
 }
 
-
-function setCookie(cname, cvalue, exhours) {
-  var d = new Date();
-  d.setTime(d.getTime() + (exhours * 60 * 60 * 1000));
+function setCookie(cname, cvalue, d) {
   var expires = "expires="+d.toUTCString();
   document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
-}
-
-function cookifyResult(){
-  var checkResult = 'dl='+dlStatus+'|ul='+ulStatus+'|ping='+pingStatus+'|jitter='+jitterStatus
-  setCookie("lastcheck", checkResult, 2)
 }
 
 function getCookie(cname) {
@@ -41,9 +65,76 @@ function getCookie(cname) {
   return "";
 }
 
-function checkCookie() {
-  var speedtest_cookie = getCookie("speedtest");
+function loadcookieResult() {
+  var speedtest_cookie = getCookie("lastcheck");
   if (speedtest_cookie != "") {
-    alert("Ahoi with Cookie");
+    return speedtest_cookie;
   }
+  return 0;
 }
+
+function cookifyResult(dlStatus, ulStatus, pingStatus, ip, jitterStatus){
+  var checkResult = dlStatus+'|'+ulStatus+'|'+pingStatus+'|'+ip+'|'+jitterStatus;
+  var encodedData = window.btoa(checkResult);
+  var d = new Date();
+  d.setTime(d.getTime() + (2 * 60 * 60 * 1000));
+
+  setCookie("lastcheck", encodedData, d);
+  setCookie("lastcheckvalid", d, d);
+}
+
+function getIp(url_getIp) {
+  var result = "";
+  xhr = new XMLHttpRequest()
+  xhr.onload = function () {
+    result = xhr.responseText;
+  }
+  xhr.open('GET', url_getIp, false);
+  xhr.send();
+  return result;
+}
+
+function compareIP(oldIp) {
+  var newIp = getIp('/ip');
+  if (oldIp == newIp) {
+    return 0;
+  }
+  return 1;
+}
+
+function timer() {
+  var until = getCookie('lastcheckvalid');
+  var countDownDate = new Date(until).getTime();
+
+  var x = setInterval(function() {
+    var now = new Date().getTime();
+    var distance = countDownDate - now;
+
+    var days = Math.floor(distance / (1000 * 60 * 60 * 24));
+    var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+    var seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+    I("timer").innerHTML = hours + "h " + minutes + "m " + seconds + "s ";
+  }, 1000);
+}
+
+var resetkey1, resetkey2 = false;
+document.addEventListener('keydown', (event) => {
+  const keyName = event.key;
+
+  if (keyName == 'r' || resetkey1 == true) {
+    resetkey1 = true;
+    if (keyName == 'e' || resetkey2 == true) {
+      resetkey2 = true;
+      if(keyName == 's') {
+        document.cookie = 'lastcheck=; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+        document.cookie = 'lastcheckvalid=; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+        location.reload();
+      }
+    }
+  } else {
+    resetkey1, resetkey2 = false;
+  }
+
+}, false);
